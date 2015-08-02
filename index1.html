@@ -1,0 +1,102 @@
+<html>
+<head>
+    <title>Tasks</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
+    <script type="text/javascript">
+        // retrieve database name from url (for example "tasks")
+        var DATABASE = "/" + window.location.href.split("/")[3];
+        function getTasks() {
+            $.ajax({
+                url: DATABASE + "/_design/users/_view/users",
+                success: function (data){
+                    var view = JSON.parse(data);
+                    var users = [];
+                    $(view.rows).each( function (index, item) {
+                        users.push (item.value);
+                    });
+                    displayTasks(users);
+                }
+             });
+        }
+        
+        function displayTasks(users) {
+            var html = "<table>";
+            $(users).each( function (index, user) {
+                var edit = "<input type='button' value='Edit' " +
+                    "onclick='editTask(" + JSON.stringify(user) + ")' />";
+                
+
+                html += "<tr>";
+                html += "<td>" + user.handle + "</td>";
+                html += "<td>" + edit + "</td>";
+                
+                html += "</tr>";
+            });
+            html += "</table>";
+            
+            $('#users').empty();            
+            $('#users').append(html);
+        }
+
+        function addTask() {
+            var name = prompt("Enter a task description");
+            if (name) {
+                var entry = {
+                    "handle": name
+                };
+
+                $.ajax({
+                    type: "POST",
+                    url: DATABASE,
+                    contentType: "application/json",
+                    data: JSON.stringify(entry),
+                    success: function () {
+                        getTasks();
+                    }
+                 });
+            }
+        }
+
+        function editTask(user) {
+            var desc = prompt("New task description", user.handle);
+            if (desc) {
+                user.handle = desc;
+
+                $.ajax({
+                    type: "PUT",
+                    url: DATABASE + "/" + user._id,
+                    contentType: "application/json",
+                    data: JSON.stringify(user),
+                    success: function () {
+                        getTasks();
+                    }
+                 });
+            }
+        }
+        // create view (will fail if already existing)
+        function createView() {
+            var view = {
+               "language": "javascript",
+               "views": {
+                   "users": {
+                       "map": "function(doc) {if (doc.handle) {emit(doc.handle, doc);}}"
+                   }
+               }
+            }
+            $.ajax({
+                type: "PUT",
+                url: DATABASE + "/_design/users",
+                contentType: "application/json",
+                data: JSON.stringify(view)
+             });
+        }
+    </script>
+</head>
+
+<body onload="createView(); getTasks();">
+        
+    <input type="button" id="add" value="Add" onclick="addTask();" />
+    <div id="users"></div>
+</body>
+</html>
